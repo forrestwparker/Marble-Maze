@@ -2,9 +2,6 @@
 //  AppDelegate.swift
 //  Marble Maze
 //
-//  Created by Forrest Parker on 5/21/18.
-//  Copyright © 2018 Forrest Parker. All rights reserved.
-//
 
 import UIKit
 
