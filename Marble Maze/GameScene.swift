@@ -11,7 +11,15 @@ class GameScene: SKScene {
     var player: SKSpriteNode!
     var motionManager: CMMotionManager!
     var lastTouchPosition: CGPoint?
+    var scoreLabel: SKLabelNode!
     
+    var isGameOver = false
+    var score = 0 {
+        didSet {
+            scoreLabel.text = "Score: \(score)"
+        }
+    }
+
     func loadLevel() {
         if let levelPath = Bundle.main.path(forResource: "level1", ofType: "txt") {
             if let levelString = try? String(contentsOfFile: levelPath) {
@@ -102,6 +110,41 @@ class GameScene: SKScene {
         addChild(player)
     }
     
+    func playerCollided(with node: SKNode) {
+        switch node.name {
+        case "vortex":
+            collisionWithVortex(node)
+        case "star":
+            collisionWithStar(node)
+        case "finish":
+            // next level?
+            break
+        default:
+            break
+        }
+    }
+    
+    func collisionWithVortex(_ node: SKNode) {
+        player.physicsBody?.isDynamic = false
+        isGameOver = true
+        score -= 1
+        
+        let move = SKAction.move(to: node.position, duration: 0.25)
+        let scale = SKAction.scale(to: 0.0001, duration: 0.25)
+        let remove = SKAction.removeFromParent()
+        let sequence = SKAction.sequence([move, scale, remove])
+        
+        player.run(sequence) { [unowned self] in
+            self.createPlayer()
+            self.isGameOver = false
+        }
+    }
+    
+    func collisionWithStar(_ node: SKNode) {
+        node.removeFromParent()
+        score += 1
+    }
+    
     override func didMove(to view: SKView) {
         let background = SKSpriteNode(imageNamed: "background.jpg")
         background.position = CGPoint(x: 512, y: 384)
@@ -109,14 +152,24 @@ class GameScene: SKScene {
         background.zPosition = -1
         addChild(background)
         physicsWorld.gravity = CGVector(dx: 0, dy: 0)
+        
         motionManager = CMMotionManager()
         motionManager.startAccelerometerUpdates()
+        
+        scoreLabel = SKLabelNode(fontNamed: "Chalkduster")
+        scoreLabel.text = "Score: \(score)"
+        scoreLabel.horizontalAlignmentMode = .left
+        scoreLabel.position = CGPoint(x: 16, y: 16)
+        addChild(scoreLabel)
+        
+        physicsWorld.contactDelegate = self
         
         loadLevel()
         createPlayer()
     }
 
     override func update(_ currentTime: TimeInterval) {
+        guard isGameOver == false else { return }
         #if targetEnvironment(simulator)
         if let currentTouch = lastTouchPosition {
             let diff = CGPoint(x: currentTouch.x - player.position.x, y: currentTouch.y - player.position.y)
@@ -151,6 +204,18 @@ class GameScene: SKScene {
         lastTouchPosition = nil
     }
 
+}
+
+extension GameScene: SKPhysicsContactDelegate {
+    
+    func didBegin(_ contact: SKPhysicsContact) {
+        if contact.bodyA.node == player {
+            playerCollided(with: contact.bodyB.node!)
+        } else if contact.bodyB.node == player {
+            playerCollided(with: contact.bodyA.node!)
+        }
+    }
+    
 }
 
 enum CollisionTypes: UInt32 {
